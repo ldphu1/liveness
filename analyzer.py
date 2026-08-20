@@ -207,15 +207,17 @@ class ActiveLivenessAnalyzer:
         yaws = np.asarray([r["features"].yaw for r in results], dtype=np.float32)
         pitches = np.asarray([r["features"].pitch for r in results], dtype=np.float32)
 
-        # Baseline tính theo 3 frame đầu tiên
-        if self.head_state.yaw_baseline is None:
-            self.head_state.yaw_baseline = float(np.median(yaws[:min(3, len(yaws))]))
-        if self.head_state.pitch_baseline is None:
-            self.head_state.pitch_baseline = float(np.median(pitches[:min(3, len(pitches))]))
-
         # Lấy giá trị góc mượt mà ở các frame gần nhất
         yaw_current = float(np.median(yaws[-3:]))
         pitch_current = float(np.median(pitches[-3:]))
+
+        if self.head_state.yaw_baseline is None or self.head_state.pitch_baseline is None:
+            if abs(yaw_current) < 8.0 and abs(pitch_current) < 8.0:
+                self.head_state.yaw_baseline = yaw_current
+                self.head_state.pitch_baseline = pitch_current
+            else:
+                # Chưa ở tư thế chuẩn -> Không nhận diện hành động, đợi nhìn thẳng
+                return None, 0.0
 
         yaw_delta = yaw_current - self.head_state.yaw_baseline
         pitch_delta = pitch_current - self.head_state.pitch_baseline
@@ -226,6 +228,10 @@ class ActiveLivenessAnalyzer:
         threshold = HEAD_ACTION_THRESHOLD
         abs_yaw = abs(yaw_delta)
         abs_pitch = abs(pitch_delta)
+
+        if abs_yaw < 4.0 and abs_pitch < 4.0:
+            self.head_state.yaw_baseline = 0.95 * self.head_state.yaw_baseline + 0.05 * yaw_current
+            self.head_state.pitch_baseline = 0.95 * self.head_state.pitch_baseline + 0.05 * pitch_current
 
         # Chỉ kích hoạt nếu vượt ngưỡng và chọn trục có biên độ chuyển động lớn hơn
         if max(abs_yaw, abs_pitch) >= threshold:
