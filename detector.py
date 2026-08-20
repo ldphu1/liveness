@@ -16,5 +16,9 @@ class FaceDetector:
             output_face_blendshapes=False,
             output_facial_transformation_matrixes=True,
             num_faces=max_faces,
+            running_mode=vision.RunningMode.VIDEO
         )
         self._detector = vision.FaceLandmarker.create_from_options(options)
+
+    def detect_video(self, mp_image, timestamp_ms: int):
+        return self._detector.detect_for_video(mp_image, timestamp_ms)

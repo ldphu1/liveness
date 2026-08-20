@@ -12,7 +12,7 @@ from metrics import _calculate_bbox, _calculate_ear, _calculate_smile_ratio, _ca
 from detector import FaceDetector
 
 
-def _analyze_single_frame(image: np.ndarray, _detector) -> dict:
+def _analyze_single_frame(image: np.ndarray, _detector, timestamp_ms: int) -> dict:
     if image is None:
         return {
             "status": "INVALID_IMAGE",
@@ -37,7 +37,9 @@ def _analyze_single_frame(image: np.ndarray, _detector) -> dict:
 
     mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
 
-    result = _detector.detect(mp_image)
+    # result = _detector.detect(mp_image)
+
+    result = _detector.detect_for_video(mp_image, timestamp_ms)
 
     face_count = len(result.face_landmarks)
 
@@ -266,10 +268,13 @@ class ActiveLivenessAnalyzer:
         return None, 0.0
 
     #api cho từng frame
-    def process_frame(self, frame: np.ndarray) -> dict:
+    def process_frame(self, frame: np.ndarray, timestamp_ms: Optional[int] = None) -> dict:
         start_time = time.perf_counter()
 
-        result = _analyze_single_frame(frame, self._detector)
+        if timestamp_ms is None:
+            timestamp_ms = int(time.time() * 1000)
+
+        result = _analyze_single_frame(frame, self._detector, timestamp_ms)
 
         # -------------------------------------------------------------------------
         # INVALID / NO FACE / MULTIPLE FACE
