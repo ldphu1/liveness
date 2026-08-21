@@ -6,11 +6,17 @@ import numpy as np
 from collections import deque
 import mediapipe as mp
 
+from anti_spoofing import MiniFASNetONNX
 from schemas import HeadMovementState, FaceFeatures
 from config import *
-from metrics import _calculate_bbox, _calculate_ear, _calculate_smile_ratio, _calculate_head_pose, _calculate_face_area_ratio
+from metrics import _calculate_bbox, _calculate_ear, _calculate_smile_ratio, _calculate_head_pose, _calculate_face_area_ratio, _calculate_blur
 from detector import FaceDetector
 
+
+
+# =============================================================================
+# ANALYZE SINGLE FRAME
+# =============================================================================
 
 def _analyze_single_frame(image: np.ndarray, _detector, timestamp_ms: int) -> dict:
     if image is None:
@@ -95,11 +101,11 @@ def _analyze_single_frame(image: np.ndarray, _detector, timestamp_ms: int) -> di
     # Quality
     # -------------------------------------------------------------------------
 
-    # blur_score = _calculate_blur(image)
-    blur_score = 0.0
+    blur_score = _calculate_blur(image)
+    # blur_score = 0.0
 
-    # quality_ok = (face_area_ratio >= MIN_FACE_AREA_RATIO and blur_score >= MIN_LAPLACIAN_VARIANCE)
-    quality_ok = True
+    quality_ok = (face_area_ratio >= MIN_FACE_AREA_RATIO and blur_score >= MIN_LAPLACIAN_VARIANCE)
+    # quality_ok = True
 
     features = FaceFeatures(
         yaw=yaw,
@@ -173,6 +179,12 @@ class ActiveLivenessAnalyzer:
         self.head_state = HeadMovementState()
         self._detector = _detector
 
+        self.anti_spoofing = MiniFASNetONNX(
+            model_path=ANTI_SPOOFING_MODEL_PATH,
+            history_len=7,
+            spoof_threshold=0.85,
+        )
+
     # -------------------------------------------------------------------------
     # RESET
     # -------------------------------------------------------------------------
@@ -180,6 +192,8 @@ class ActiveLivenessAnalyzer:
         self.feature_buffer.clear()
 
         self.head_state = HeadMovementState()
+
+        self.anti_spoofing.reset()
 
     # -------------------------------------------------------------------------
     # ADD FEATURE
@@ -295,6 +309,24 @@ class ActiveLivenessAnalyzer:
             }
 
         features = result["features"]
+        bbox = features.bbox
+
+        # -------------------------------------------------------------
+        # PASSIVE ANTI-SPOOFING CHECK
+        # -------------------------------------------------------------
+        is_real, liveness_score = self.anti_spoofing.predict(frame, bbox, method="mean")
+
+        if not is_real:
+            return {
+                "status": "SPOOF_DETECTED",
+                "detected_action": None,
+                "confidence": 0.0,
+                "face_detected": True,
+                "is_real": False,
+                "liveness_score": round(liveness_score, 3),
+                "bbox": list(bbox),
+                "processing_ms": round((time.perf_counter() - start_time) * 1000.0, 2),
+            }
 
         # -------------------------------------------------------------------------
         # QUALITY FAIL

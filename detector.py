@@ -6,7 +6,7 @@ import config
 
 
 class FaceDetector:
-    def __init__(self, model_path: str = config.MODEL_PATH, max_faces: int = config.MAX_NUM_FACES):
+    def __init__(self, model_path: str = config.ACTION_LIVENESS_MODEL_PATH, max_faces: int = config.MAX_NUM_FACES):
         """
         Khởi tạo MediaPipe FaceLandmarker detector.
         """

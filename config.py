@@ -2,7 +2,8 @@
 # CONFIG
 # =============================================================================
 
-MODEL_PATH = "face_landmarker_v2_with_blendshapes.task"
+ACTION_LIVENESS_MODEL_PATH = "models/action_liveness/face_landmarker_v2_with_blendshapes.task"
+ANTI_SPOOFING_MODEL_PATH = "models/anti_spoofing/best_model_quantized.onnx"
 
 # Face
 MAX_NUM_FACES = 2
